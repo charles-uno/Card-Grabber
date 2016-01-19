@@ -6,6 +6,159 @@
 
 # This document wraps at line 72. 
 
+from random import randrange
+
+from urllib2 import urlopen
+
+from bs4 import BeautifulSoup
+
+import os
+
+
+
+
+
+def main():
+
+  URL = 'http://mtg.wtf/cards/isd/165b.png'
+
+  img = urlopen(URL).read()
+
+  with open('test.png', 'wb') as imgfile:
+      imgfile.write(img)
+
+
+  return
+
+
+  sets = getSets()
+
+  abbr = 'isd'
+
+  cards = getCards(abbr)
+
+  num = cards.keys()[ randrange(0, len(cards.keys())) ]
+
+  getImage(abbr, num)
+
+  return
+
+# Given a URL, return a BeautifulSoup object. 
+def getSoup(URL):
+  return BeautifulSoup( urlopen(URL).read() )
+
+# Read in two tab-delimited columns as a dictionary. 
+def readDict(filename):
+  with open(filename, 'r') as dfile:
+    dlines = [ x.strip().split('\t') for x in dfile.readlines() ]
+  return dict(dlines)
+
+# Write a dictionary to a file with two tab-delimited columns. 
+def writeDict(d, filename):
+  with open(filename, 'w') as dfile:
+    [ dfile.write(key + '\t' + val + '\n') for key, val in d.items() ]
+  return d
+
+def getSets():
+  # Let's try to keep the output organized. 
+  if 'output' not in os.listdir('.'):
+    print 'Creating directory: output'
+    os.mkdir('output')
+  # If we already have a record of the sets, read it. 
+  if 'sets.txt' in os.listdir('output'):
+    print 'Reading output/sets.txt '
+    return readDict('output/sets.txt')
+  # Otherwise, scrape this data from mtg.wtf and store it. 
+  else:
+    print 'Scraping set information from mtg.wtf '
+    setDict = {}
+    setList = getSoup('http://mtg.wtf/set').find('ul')
+    for setItem in setList.find_all('li'):
+      # Watch out for em dashes. 
+      setText = setItem.get_text().strip().replace(u'\u2014', '--')
+      lastParen = setText.rfind('(')
+      setTitle = setText[:lastParen].strip()
+      setAbbr = setText[lastParen+1:-1].strip()
+      setDict[setAbbr] = setTitle
+    print 'Creating output/sets.txt'
+    return writeDict(setDict, 'output/sets.txt')
+
+# Grab the card listing for a given set. 
+def getCards(abbr):
+  # Give each set its own subdirectory. 
+  if abbr not in os.listdir('output'):
+    print 'Creating subdirectory: output/' + abbr
+    os.mkdir('output/' + abbr)
+  # If this data already exists, grab it. 
+  if 'cards.txt' in os.listdir('output/' + abbr):
+    print 'Reading output/' + abbr + '/cards.txt '
+    cardDict = readDict('output/' + abbr + '/cards.txt')
+  # Otherwise, parse it from mtg.wtf. 
+  else:
+    print 'Scraping ' + abbr + ' card information from mtg.wtf '
+    cardDict = {}
+    # Awkwardly, this site breaks up their set into pages of 25. We
+    # keep grabbing pages until we find an empty one (or get to page 
+    # 100, which means something is wrong). 
+    for page in range(1, 100):
+      URL = 'http://mtg.wtf/set/' + abbr + '?page=' + str(page)
+      # The cards are all in the first table on the page. 
+      cardTable = getSoup(URL).find('table')
+      # If no table exists, we have run out of pages. 
+      if cardTable is None:
+        break
+      # Otherwise, grab the cards. 
+      else:
+        print '\tPage ' + str(page)
+        # Split the table into rows, then grab the first link in each
+        # row. The link text is the card name, and its destination
+        # gives the collector number. Note that split cards, etc, are
+        # numbered a and b. 
+        for tr in cardTable.find_all('tr')[:3]:
+          link = tr.find('a')
+          num = link.get('href').split('/')[-1]
+          name = link.get_text().strip()
+          cardDict[num] = name
+    print 'Creating output/' + abbr + '/cards.txt'
+  return writeDict(cardDict, 'output/' + abbr + '/cards.txt')
+
+def getImage(abbr, num):
+  # Give each set its own subdirectory. 
+  if abbr not in os.listdir('output'):
+    print 'Creating subdirectory: output/' + abbr
+    os.mkdir('output/' + abbr)
+  # Card images are indexed by collector number. 
+  cardPath = 'output/' + abbr + '/' + str(num) + '.png'
+  # If we already have this card image, we're done. 
+  if os.path.exists(cardPath):
+    print '\tWe already have ' + cardPath
+  # Otherwise, download it from mtg.wtf. 
+  else:
+    print '\tGrabbing ' + cardPath
+    # To be easier on the connection (and our hard drive) let's grab
+    # the low-resolution image. To swap for the high-resolution one,
+    # replace 'cards' with 'cards_hq'. 
+    URL = 'http://mtg.wtf/cards/' + abbr + '/' + str(num) + '.png'
+
+    print 'URL = ', URL
+
+    imgData = urlopen(URL).read()
+    # Write the data out into an image file. We're writing binary
+    # information, not text, so we need to use 'wb'. 
+    with open(cardPath, 'wb') as imgfile:
+      imgfile.write(imgData)
+  return
+
+
+
+
+
+if __name__=='__main__':
+  main()
+
+
+exit()
+
 # #####################################################################
 # ############################################################ Synopsis
 # #####################################################################

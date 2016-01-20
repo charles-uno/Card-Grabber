@@ -10,9 +10,27 @@ from random import randrange
 
 from urllib2 import urlopen
 
+
+
 from bs4 import BeautifulSoup
 
 import os
+
+# For displaying images. 
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import numpy as np
+
+
+import shutil
+
+import requests
+
+#url = 'http://example.com/img.png'
+#response = requests.get(url, stream=True)
+#with open('img.png', 'wb') as out_file:
+#    shutil.copyfileobj(response.raw, out_file)
+#del response
 
 
 
@@ -20,13 +38,48 @@ import os
 
 def main():
 
-  URL = 'http://mtg.wtf/cards/isd/165b.png'
+#  URL = 'http://mtg.wtf/cards_hq/isd/165b.png'
+#  filename = 'test.png'
 
-  img = urlopen(URL).read()
+#  URL = 'http://cookingwithcharles.com/professional/resume/thumb.jpg'
+#  filename = 'test.jpg'
 
-  with open('test.png', 'wb') as imgfile:
-      imgfile.write(img)
+#  URL = 'http://cookingwithcharles.com/code/tuna/bob_iar.png'
+#  filename = 'test.png'
 
+  URL = 'http://magiccards.info/scans/en/isd/165b.jpg'
+  filename = 'test.jpg'
+
+
+  response = requests.get(URL, stream=True)
+  with open(filename, 'wb') as outfile:
+    shutil.copyfileobj(response.raw, outfile)
+  del response
+
+
+  # Set window to be 480x680 pixels, adjust subplots to go all the way to the edge. 
+
+
+#  img = urlopen(URL).read()
+
+#  with open(filename, 'wb') as imgfile:
+#      imgfile.write(img)
+
+#  imgdata = urlopen(imgpath).read()
+#  with open('test.jpg', 'wb') as imgfile:
+#    imgfile.write(imgdata)
+#  Image.open('test.jpg').save('test.png')
+
+  plt.figure( figsize=(5, 7) )
+  plt.subplots_adjust(bottom=0.02, left=0.02, right=0.98, top=0.98)
+  plt.axis('off')
+
+  img = mpimg.imread(filename)
+
+  print 'image shape = ', img.shape
+
+  plt.imshow(img)
+  plt.show()
 
   return
 

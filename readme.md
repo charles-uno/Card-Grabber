@@ -1,8 +1,5 @@
 # Card-Grabber
-For grabbing set data, card data, and card images from magiccards.info. Let's also see about displaying them with Matplotlib. 
 
-Requires...
+This script shows information and images for randomly-chosen Magic cards. If the information isn't present locally, it's scraped from the internet. 
 
-python matplotlib
-
-imagemagick (or any other way of converting jpg to png)
+Requires Matplotlib and BeautifulSoup. 

@@ -45,24 +45,13 @@ def main():
   num, name = choice(cards)
 
   print 'LOADING CARD DATA FOR ' + name
-
   getData(abbr, num)
 
-  return
-
   print 'SHOWING CARD IMAGE FOR ' + name
-
   getImage(abbr, num)
   showImage(abbr, num)
 
-
-#  print num, name
-
-
-
   return
-
-
 
 # #####################################################################
 # #################################################### Get Set Listings
@@ -138,6 +127,8 @@ def getCards(abbr):
           link = tr.find('a')
           cardNum = link.get('href').split('/')[-1]
           cardName = link.get_text().strip()
+          # Watch out for special characters. 
+          cardName = cardName.replace(u'\xae', 'ae')
           # Keep track of this information in a list of tuples. 
           cards.append( (cardNum, cardName) )
     print '\tCreating output/' + abbr + '/cards.txt'
@@ -148,19 +139,34 @@ def getCards(abbr):
 # #####################################################################
 
 def getData(abbr, num):
-
+  # The card pages are basically built to be parsed. Everything is in
+  # a table. Each piece of information is wrapped in its own HTML tag.
+  # And the tags even have classes telling you what they are! 
   soup = getSoup('http://www.mtg.wtf/card/' + abbr + '/' + num)
-
   dataTable = soup.find('table')
-
-  print dataTable.prettify()[:300]
-
-  print dataTable.find( **{'class':'card_title'} ).prettify()
-
-
+  # This is a bit awkward. We want to call find(class='card_title'),
+  # but 'class' is a reserved word in Python (like 'for' and 'if'). To
+  # get around that, we pack the keyword and argument into a
+  # dictionary, then use asterisks to safely unpack it. 
+  nameLine = dataTable.find( **{'class':'card_title'} ).get_text()
+  name, cost = nameLine.split('\n')[1:3]
+  print '\tNAME ' + name
+  print '\tCOST ' + cost
+  typeLine = dataTable.find( **{'class':'typeline'} ).get_text()
+  print '\tTYPE ' + typeLine
+  # Watch out -- basic lands don't have oracle text. 
+  if dataTable.find( **{'class':'oracle'} ) is None:
+    print '\tTEXT '
+  else:
+    oracle = dataTable.find( **{'class':'oracle'} ).get_text()
+    # We don't really need the full text, do we? 
+    if len(oracle)<50:
+      print '\tTEXT ' + oracle
+    else:
+      print '\tTEXT ' + oracle[:47] + '...'
+  # OK, so power, toughness, and loyalty aren't classed...
+  print '\tThe rest is left as an exercise to the reader. '
   return
-
-
 
 # #####################################################################
 # ######################################### Get Image for a Single Card
@@ -210,6 +216,7 @@ def showImage(abbr, num):
     # Turn those pixels into a plot. 
     plt.imshow(img)
     # Display the plot window. 
+    print '\tPlotting ' + path
     plt.show()
   return
 

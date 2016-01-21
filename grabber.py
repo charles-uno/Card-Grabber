@@ -6,150 +6,117 @@
 
 # This document wraps at line 72. 
 
-from random import randrange
+# #####################################################################
+# ############################################################ Synopsis
+# #####################################################################
 
-from urllib2 import urlopen
+# This script presents random card data and images. If the necessary
+# files aren't present locally, it scrapes them from the internet. 
 
+# #####################################################################
+# ############################################# Import Python Libraries
+# #####################################################################
 
-
+# For conveniently parsing HTML. 
 from bs4 import BeautifulSoup
-
-import os
-
-# For displaying images. 
+# We use Matplotlib's image library to display images. 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
+# For navigating between directories. 
+import os
+# For choosing randomly from a list. 
+from random import choice
+# For grabbing HTML and images from online. 
+from urllib2 import urlopen
 
-
-import shutil
-
-import requests
-
-#url = 'http://example.com/img.png'
-#response = requests.get(url, stream=True)
-#with open('img.png', 'wb') as out_file:
-#    shutil.copyfileobj(response.raw, out_file)
-#del response
-
-
-
-
+# #####################################################################
+# ################################################################ Main
+# #####################################################################
 
 def main():
 
-#  URL = 'http://mtg.wtf/cards_hq/isd/165b.png'
-#  filename = 'test.png'
+  print 'LOADING SET LISTING'
+  sets = getSets()
+  abbr, title = choice(sets)
 
-#  URL = 'http://cookingwithcharles.com/professional/resume/thumb.jpg'
-#  filename = 'test.jpg'
+  print 'LOADING CARD LISTING FOR ' + title
+  cards = getCards(abbr)
+  num, name = choice(cards)
 
-#  URL = 'http://cookingwithcharles.com/code/tuna/bob_iar.png'
-#  filename = 'test.png'
+  print 'LOADING CARD DATA FOR ' + name
 
-  URL = 'http://magiccards.info/scans/en/isd/165b.jpg'
-  filename = 'test.jpg'
-
-
-  response = requests.get(URL, stream=True)
-  with open(filename, 'wb') as outfile:
-    shutil.copyfileobj(response.raw, outfile)
-  del response
-
-
-  # Set window to be 480x680 pixels, adjust subplots to go all the way to the edge. 
-
-
-#  img = urlopen(URL).read()
-
-#  with open(filename, 'wb') as imgfile:
-#      imgfile.write(img)
-
-#  imgdata = urlopen(imgpath).read()
-#  with open('test.jpg', 'wb') as imgfile:
-#    imgfile.write(imgdata)
-#  Image.open('test.jpg').save('test.png')
-
-  plt.figure( figsize=(5, 7) )
-  plt.subplots_adjust(bottom=0.02, left=0.02, right=0.98, top=0.98)
-  plt.axis('off')
-
-  img = mpimg.imread(filename)
-
-  print 'image shape = ', img.shape
-
-  plt.imshow(img)
-  plt.show()
+  getData(abbr, num)
 
   return
 
-
-  sets = getSets()
-
-  abbr = 'isd'
-
-  cards = getCards(abbr)
-
-  num = cards.keys()[ randrange(0, len(cards.keys())) ]
+  print 'SHOWING CARD IMAGE FOR ' + name
 
   getImage(abbr, num)
+  showImage(abbr, num)
+
+
+#  print num, name
+
+
 
   return
 
-# Given a URL, return a BeautifulSoup object. 
-def getSoup(URL):
-  return BeautifulSoup( urlopen(URL).read() )
 
-# Read in two tab-delimited columns as a dictionary. 
-def readDict(filename):
-  with open(filename, 'r') as dfile:
-    dlines = [ x.strip().split('\t') for x in dfile.readlines() ]
-  return dict(dlines)
 
-# Write a dictionary to a file with two tab-delimited columns. 
-def writeDict(d, filename):
-  with open(filename, 'w') as dfile:
-    [ dfile.write(key + '\t' + val + '\n') for key, val in d.items() ]
-  return d
+# #####################################################################
+# #################################################### Get Set Listings
+# #####################################################################
 
+# Get a dictionary of set titles, keyed by their abbreviations (which
+# are also used in URLs). 
 def getSets():
   # Let's try to keep the output organized. 
   if 'output' not in os.listdir('.'):
-    print 'Creating directory: output'
+    print '\tCreating directory: output'
     os.mkdir('output')
   # If we already have a record of the sets, read it. 
   if 'sets.txt' in os.listdir('output'):
-    print 'Reading output/sets.txt '
-    return readDict('output/sets.txt')
+    print '\tReading output/sets.txt '
+    return readTuples('output/sets.txt')
   # Otherwise, scrape this data from mtg.wtf and store it. 
   else:
-    print 'Scraping set information from mtg.wtf '
-    setDict = {}
+    print '\tScraping set information from mtg.wtf '
+    sets = []
+    # We grab the set listing page from mtg.wtf, which lists set
+    # titles and abbreviations in an unordered list. 
     setList = getSoup('http://mtg.wtf/set').find('ul')
+    # Each list item is a set. 
     for setItem in setList.find_all('li'):
       # Watch out for em dashes. 
       setText = setItem.get_text().strip().replace(u'\u2014', '--')
+      # Some set titles have parentheses in them, awkwardly. To get
+      # the abbreviation, we split on the last one. 
       lastParen = setText.rfind('(')
       setTitle = setText[:lastParen].strip()
       setAbbr = setText[lastParen+1:-1].strip()
-      setDict[setAbbr] = setTitle
-    print 'Creating output/sets.txt'
-    return writeDict(setDict, 'output/sets.txt')
+      # Keep track of this information in a list of tuples. 
+      sets.append( (setAbbr, setTitle) )
+    print '\tCreating output/sets.txt'
+    return writeTuples(sets, 'output/sets.txt')
 
-# Grab the card listing for a given set. 
+# #####################################################################
+# ################################## Get Card Listings for a Single Set
+# #####################################################################
+
 def getCards(abbr):
   # Give each set its own subdirectory. 
   if abbr not in os.listdir('output'):
-    print 'Creating subdirectory: output/' + abbr
+    print '\tCreating subdirectory: output/' + abbr
     os.mkdir('output/' + abbr)
   # If this data already exists, grab it. 
   if 'cards.txt' in os.listdir('output/' + abbr):
-    print 'Reading output/' + abbr + '/cards.txt '
-    cardDict = readDict('output/' + abbr + '/cards.txt')
+    print '\tReading output/' + abbr + '/cards.txt '
+    return readTuples('output/' + abbr + '/cards.txt')
   # Otherwise, parse it from mtg.wtf. 
   else:
-    print 'Scraping ' + abbr + ' card information from mtg.wtf '
-    cardDict = {}
+    print '\tScraping ' + abbr + ' card information from mtg.wtf '
+    cards = []
     # Awkwardly, this site breaks up their set into pages of 25. We
     # keep grabbing pages until we find an empty one (or get to page 
     # 100, which means something is wrong). 
@@ -162,447 +129,122 @@ def getCards(abbr):
         break
       # Otherwise, grab the cards. 
       else:
-        print '\tPage ' + str(page)
+        print '\t\tPage ' + str(page)
         # Split the table into rows, then grab the first link in each
         # row. The link text is the card name, and its destination
         # gives the collector number. Note that split cards, etc, are
         # numbered a and b. 
         for tr in cardTable.find_all('tr')[:3]:
           link = tr.find('a')
-          num = link.get('href').split('/')[-1]
-          name = link.get_text().strip()
-          cardDict[num] = name
-    print 'Creating output/' + abbr + '/cards.txt'
-  return writeDict(cardDict, 'output/' + abbr + '/cards.txt')
+          cardNum = link.get('href').split('/')[-1]
+          cardName = link.get_text().strip()
+          # Keep track of this information in a list of tuples. 
+          cards.append( (cardNum, cardName) )
+    print '\tCreating output/' + abbr + '/cards.txt'
+    return writeTuples(cards, 'output/' + abbr + '/cards.txt')
+
+# #####################################################################
+# ########################################## Get Data for a Single Card
+# #####################################################################
+
+def getData(abbr, num):
+
+  soup = getSoup('http://www.mtg.wtf/card/' + abbr + '/' + num)
+
+  dataTable = soup.find('table')
+
+  print dataTable.prettify()[:300]
+
+  print dataTable.find( **{'class':'card_title'} ).prettify()
+
+
+  return
+
+
+
+# #####################################################################
+# ######################################### Get Image for a Single Card
+# #####################################################################
 
 def getImage(abbr, num):
   # Give each set its own subdirectory. 
   if abbr not in os.listdir('output'):
-    print 'Creating subdirectory: output/' + abbr
+    print '\tCreating subdirectory: output/' + abbr
     os.mkdir('output/' + abbr)
-  # Card images are indexed by collector number. 
-  cardPath = 'output/' + abbr + '/' + str(num) + '.png'
+  # If we already have this image, where do we keep it? 
+  path = cardImagePath(abbr, num)
   # If we already have this card image, we're done. 
-  if os.path.exists(cardPath):
-    print '\tWe already have ' + cardPath
+  if os.path.exists(path):
+    print '\tReading ' + path
   # Otherwise, download it from mtg.wtf. 
   else:
-    print '\tGrabbing ' + cardPath
-    # To be easier on the connection (and our hard drive) let's grab
-    # the low-resolution image. To swap for the high-resolution one,
-    # replace 'cards' with 'cards_hq'. 
-    URL = 'http://mtg.wtf/cards/' + abbr + '/' + str(num) + '.png'
-
-    print 'URL = ', URL
-
-    imgData = urlopen(URL).read()
-    # Write the data out into an image file. We're writing binary
-    # information, not text, so we need to use 'wb'. 
-    with open(cardPath, 'wb') as imgfile:
-      imgfile.write(imgData)
-  return
-
-
-
-
-
-if __name__=='__main__':
-  main()
-
-
-exit()
-
-# #####################################################################
-# ############################################################ Synopsis
-# #####################################################################
-
-# This routine does a little parsing on magiccards.info, grabs some
-# card images, then shows them off. 
-
-# #####################################################################
-# ############################################### Import Python Modules
-# #####################################################################
-
-# For checking that websites exist, then grabbing data from them. 
-from urllib2 import urlopen, HTTPError
-
-# For parsing HTML pages. 
-from bs4 import BeautifulSoup
-
-# For converting images from jpg to png. 
-import Image
-
-# For displaying images. 
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import numpy as np
-
-# For creating and navigating directories. 
-import os
-
-# For making random choices. 
-from random import randrange
-
-# #####################################################################
-# ################################################################ Main
-# #####################################################################
-
-def main():
-
-  # Grab set names and abbreviations from our local record. If no
-  # local record exists (that is, if this is the first time the script
-  # has run) then we instead grab this information from the
-  # magiccards.info sitemap. 
-  sets = getSets()
-
-  # Once we have a list of sets, we go for a list of card images. 
-  getCards('isd')
-
-  return
-
-# Gaea's Cradle: us, 321
-# Nezumi Graverobber: chk, 129a
-# Garruk Relentless: isd, 181a
-# Evermind: sok, 37
-# Pact of the Titan: fut, 103
-
-#  imgdata = urlopen(imgpath).read()
-#  with open('test.jpg', 'wb') as imgfile:
-#    imgfile.write(imgdata)
-#  Image.open('test.jpg').save('test.png')
-#  img = mpimg.imread('test.png')
-#  plt.imshow(img)
-#  plt.show()
-
-# #####################################################################
-# ############################################################# Helpers
-# #####################################################################
-
-# Print something out in a nice column. Justify or trim to fit the
-# desired width. 
-def col(x, width=10):
-  return str(x).ljust(width-1)[:width-1] + ' '
-
-# Read in a file with two tab-delimited columns and return it as a
-# dictionary. 
-def readDict(filename):
-  # Dictionary to be returned. 
-  d = {}
-  # Grab the file contents as a string of lines. 
-  with open(filename, 'r') as dictfile:
-    dictlines = dictfile.readlines()
-  # Split each line into a key and a value. 
-  for line in dictlines:
-    key, val = [ x.strip() for x in line.split('\t') ]
-    d[key] = val
-  # Store those values in the dictionary, then return it. 
-  return d
-
-# Write a dictionary to a file with two tab-delimited columns. 
-def writeDict(d, filename):
-  with open(filename, 'w') as dictfile:
-    for key, val in sorted( d.items() ):
-      dictfile.write(key + '\t' + val + '\n')
+    # Where is this image? 
+    URL = cardImageURL(abbr, num)
+    print '\tScraping ' + URL
+    # Grab the image data from online, and dump it into a file. The
+    # 'wb' option means we're writing binary, not text. 
+    img = urlopen(URL).read()
+    with open(path, 'wb') as imgfile:
+      imgfile.write(img)
+    print '\tCreating ' + path
   return
 
 # #####################################################################
-# ############################################### BeautifulSoup Helpers
+# ################################################### Show a Card Image
 # #####################################################################
 
-# As we go, the sanity check is the prettify() method. Any
-# BeautifulSoup object (page, table, list, link, whatever) can be
-# displayed using:
-# print whatever.prettify()
-# This will add indentation and spacing to make the HTML legible, even
-# if it's a jumbled mess on the website. Note that these expressions
-# can be quite long, so it's often better to just look at the first
-# chunk of the pretty expression, for example:
-# print whatever.prettify()[:100]
-# slices off the first 100 characters to print. 
+def showImage(abbr, num):
+  # Where is this image? 
+  path = cardImagePath(abbr, num)
+  # Sanity check: does it exist? 
+  if not os.path.exists(path):
+    print '\tNo image found at ' + path
+  # Show the image using Matplotlib. 
+  else:
+    # Set up the Matplotlib window. Proportion it like a card, and tell
+    # the plot axes to go all the way to the edge. 
+    plt.figure( figsize=(5, 7) )
+    plt.subplots_adjust(bottom=0., left=0., right=1., top=1.)
+    # Have matplotlib read in the image as a Numpy array of pixels. 
+    img = mpimg.imread(path)
+    # Turn those pixels into a plot. 
+    plt.imshow(img)
+    # Display the plot window. 
+    plt.show()
+  return
 
-# =====================================================================
-# ========================================================== Soup Maker
-# =====================================================================
+# #####################################################################
+# #################################################### Helper Functions
+# #####################################################################
 
-# Given the URL of an HTML page, return a BeautifulSoup object. 
+# How are images organized locally? 
+def cardImagePath(abbr, num):
+  return 'output/' + abbr + '/' + str(num) + '.jpg'
+
+# How are images organized online? 
+def cardImageURL(abbr, num):
+  # Oddly, images scraped from mtg.wtf don't seem to show up right.
+  # Maybe they store them compressed or something? We use
+  # magiccards.info instead, which uses a similar URL for card images.
+  # This isn't ideal... it looks like Python can natively read in
+  # PNGs, but JPG handling has more tenuous dependencies. 
+#    URL = 'http://mtg.wtf/cards/' + abbr + '/' + num + '.png'
+  return 'http://magiccards.info/scans/en/' + abbr + '/' + num + '.jpg'
+
+# Given a URL, return a BeautifulSoup object. 
 def getSoup(URL):
   return BeautifulSoup( urlopen(URL).read() )
 
-# Safely try to grab the contents of a URL that may not exist. 
-def getURL(URL):
-  try:
-    page = urlopen(URL)
-    return page.read()
-  except HTTPError, e:
-    return False
-
-
-
-# =====================================================================
-# ==================================== Grab Set Names and Abbreviations
-# =====================================================================
-
-# We want a list of set titles and their corresponding abbreviations.
-# If no local record of that data exists, we create a record from the
-# site map on magiccards.info. Data will be returned as a dictionary with entries of the form {abbr:title}.
-def getSets():
-  # Move to the output folder, after creating it if necesary. 
-  if 'output' not in os.listdir('.'):
-    print 'Creating output directory'
-    os.mkdir('output')
-  print 'Moving to output directory'
-  os.chdir('output')
-  # If sets.txt exists, read it. 
-  if 'sets.txt' in os.listdir('.'):
-    print 'Reading sets.txt'
-    sets = readDict('sets.txt')
-  # If the file doesn't exist, parse the sitemap of magiccards.info
-  # and dump it into the file. 
-  else:
-    print 'Parsing magiccards.info sitemap'
-    # Grab a soup object of the sitemap HTML. 
-    soup = getSoup('http://magiccards.info/sitemap.html')
-    # The links to expansion pages are all in the second table. 
-    table = soup.find_all('table')[1]
-    # The table contains a list (ul, for unordered list, since the
-    # bullets are not numbered) of blocks. Each block has a list of
-    # sets. We scroll through the set lists to get a list of set names
-    # and abbreviations. 
-    sets = {}
-    for block in table.find('ul').find_all('ul'):
-      # Within a block, each list item (li) corresponds to a single
-      # expansion. 
-      for expansion in block.find_all('li'):
-        # From there we can grab the set name (the text in the link to
-        # that set's name) and its abbreviation (the small text next to
-        # the link). 
-        title = expansion.find('a').string
-        abbr = expansion.find('small').string
-        # Add this set to the dictionary. 
-        sets[abbr] = title
-    # Write the set names and abbreviations out to a text file so we
-    # don't have to parse the website all over again next time. 
-    print 'Creating sets.txt'
-    writeDict(sets, 'sets.txt')
-  # Return the dictionary of set titles and abbreviations. 
-  return sets
-
-# =====================================================================
-# ====================================================== Grab Card Data
-# =====================================================================
-
-
-
-
-
-
-
-
-# Grab the card data. It comes from magiccards.info the first time,
-# then we just look for our local copy. 
-def getCards(abbr):
-  # We have a directory for each set. 
-  if abbr not in os.listdir('.'):
-    print 'Creating ' + abbr + ' directory'
-    os.mkdir(abbr)
-  print 'Moving to ' + abbr + ' directory'
-  os.chdir(abbr)
-
-  for n in range(1, 500):
-
-#    print 'card number: ', n
-
-    start = 'http://magiccards.info/scans/en/' + abbr + '/' + str(n)
-
-    URL = start + '.jpg'
-    URLa = start + 'a.jpg'
-    URLb = start + 'b.jpg'
-
-    imgdata = getURL(URL)
-
-    if imgdata:
-
-      print 'found ', str(n) + '.jpg'
-
-      with open(str(n) + '.jpg', 'wb') as imgfile:
-        imgfile.write(imgdata)
-
-    else:
-
-#      print 'didn\'t find ', str(n) + '.jpg'
-      imgdataa = getURL(URLa)
-      imgdatab = getURL(URLb)
-
-      if imgdataa and imgdatab:
-
-        print 'found ' + str(n) + 'a and ' + str(n) + 'b'
-
-        with open(str(n) + 'a.jpg', 'wb') as imgfile:
-          imgfile.write(imgdataa)
-
-        with open(str(n) + 'b.jpg', 'wb') as imgfile:
-          imgfile.write(imgdatab)
-
-      else:
-
-        print 'found nothing'
-        break
-
-
-
-
-#    imgdata = urlopen(URL).read()
-#    imgdata = getURL(URL)
-
-#    with open(str(n) + '.jpg', 'wb') as imgfile:
-#      imgfile.write(imgdata)
-
-#  Image.open('test.jpg').save('test.png')
-#  img = mpimg.imread('test.png')
-#  plt.imshow(img)
-
-  print 'Moving back to output directory'
-  os.chdir('..')
-
-
-  return
-
-
-
-
-
-
-
-#  # If cards.txt exists, read it. 
-#  if 'cards.txt' in os.listdir('.'):
-#    print 'Reading cards.txt'
-#    cards = readDict('cards.txt')
-  # Otherwise, we need to scrape the card data ourselves. 
-#  else:
-#    for n in range(1, 11):
-#      print 'trying to grab ', n
-#      URL = ('http://magiccards.info/' + abbr + '/en/' + str(n) +
-#             '.html')
-#      page = getURL(URL)
-#    return
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  # We set the URL of the card page based on the set abbreviation and
-  # the card's collector number. 
-  soup = getSoup('http://magiccards.info/' + abbr + '/en/' +
-                 str(num) + '.html')
-  # The data we care about -- card name, card text, etc -- is in the
-  # fourth table on the page. 
-  table = soup.find_all('table')[3]
-  # The card name is in the first link. 
-  print 'card name: ', table.find('a').string
-  # Everything else we care about is in a paragraph tag. 
-  paragraphs = table.find_all('p')
-  # The first paragraph has the type line, power/toughness, loyalty,
-  # mana cost, cmc, and color indicator all mashed up together. A
-  # little bit of string parsing is necessary to disentangle that
-  # information... which is left as an exercise to the reader. 
-
-
-
-
-
-
-  print 'rules text: ', paragraphs[1]
-
-  print 'number of paragraphs: ', len(paragraphs)
-
-  for i, p in enumerate(paragraphs):
-    # On its own, get_text cuts out line breaks. We want those to be
-    # newlines instead... but never double newlines. 
-
-    print 'Paragraph ', i
-
-#    [ br.replace_with('\n') for br in p.find_all('br') ]
-#    print p.get_text().replace('\n\n', '\n')
-    print p.prettify()
-
-
-
-  return {}
-
-
-
-  # A few chunks of data are squished together, so we need to split them up. Specifically, the first paragraph contains the card's types, its size (if a creature or planeswalker), and its cost and CMC (
-
-
-  # A few chunks of data are squished together, so we need to split
-  # them up. 
-  typeSize, costCmc = paragraphs[0].string.split(',')
-
-  # Cost and converted mana cost. 
-  cost, cmc = costCmc.replace('(', '').replace(')', '').split()
-
-  print 'cost = ', cost
-  print 'cmc = ', cmc
-
-  # If we're looking at a creature or planeswalker, there last "word"
-  # is its size. We isolate that by finding the last space. 
-  if 'Planeswalker' in typeSize or 'Creature' in typeSize:
-    lastSpace = typeSize.rfind(' ')
-    types, size = typeSize[:lastSpace], typeSize[lastSpace+1:]
-  else:
-    types, size = typeSize, None
-
-  print 'types = ', types
-  print 'size = ', size
-
-  print table.find_all('p')[1].prettify()
-  print table.find_all('p')[1].get_text()
-
-  print table.find_all('p')[2].prettify()
-
-
-  return {'card name':'test'}
-
-
-# =====================================================================
-# ===================================================== Grab Card Image
-# =====================================================================
-
-# Card data and images on magiccards.info are indexed by set
-# abbreviation and collector number. 
-
-def imgURL(abbr, num):
-  return ( 'http://magiccards.info/scans/en/' + abbr + '/' + str(num) +
-           '.jpg' )
-
-
-
-# #####################################################################
-# ################################################## Matplotlib Helpers
-# #####################################################################
-
-
-
-
-
-
-
-
-
-
+# Read in two tab-delimited columns as a list of tuples.  
+def readTuples(filename):
+  with open(filename, 'r') as infile:
+    return [ x.strip().split('\t') for x in infile.readlines() ]
+
+# Write a list of tuples to file as tab-delimited columns. 
+def writeTuples(tlist, filename):
+  with open(filename, 'w') as outfile:
+    [ outfile.write('\t'.join(x) + '\n') for x in tlist ]
+  return tlist
 
 # #####################################################################
 # ################################################### For Importability
@@ -610,3 +252,4 @@ def imgURL(abbr, num):
 
 if __name__=='__main__':
   main()
+

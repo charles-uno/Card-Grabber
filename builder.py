@@ -16,12 +16,7 @@
 
 import numpy as np
 
-import random
-
 from urllib.request import urlretrieve
-
-## For conveniently parsing HTML. 
-#from bs4 import BeautifulSoup
 
 # We use Matplotlib's image library to display images. 
 import matplotlib.pyplot as plt
@@ -31,17 +26,20 @@ import numpy as np
 # For navigating between directories. 
 import os
 
-## For choosing randomly from a list. 
-#from random import choice
-
-## For grabbing HTML and images from online. 
-#from urllib2 import urlopen
-
 # ######################################################################
 # ############################################## Double Faced Card Class
 # ######################################################################
 
-class dfc(dict):
+def dfc(abbr, num):
+    # Card frames have changed since the original Innistrad block. 
+    if abbr in ('isd', 'dka'):
+        return dfc_old(abbr, num)
+    else:
+        return dfc_new(abbr, num)
+
+
+
+class dfc_new(dict):
 
     url_root = 'http://mtg.wtf/cards/'
 
@@ -52,8 +50,8 @@ class dfc(dict):
     h_ttl = 35
     h_art = 138
     h_typ = 22
-    h_txt = 90
-    h_div = 5
+    h_txt = 91
+    h_div = 4
     h_lip = 5
     h_pow = 20
 
@@ -69,6 +67,9 @@ class dfc(dict):
 
     def __init__(self, abbr, num):
         self.abbr, self.num = abbr, str(num)
+        # Store the input files in their own directory. 
+        if not os.path.isdir('sides'):
+            os.mkdir('sides')
         # Check if we already have images for this card. If not,
         # download them. 
         for side in ('a', 'b'):
@@ -95,7 +96,7 @@ class dfc(dict):
     # ------------------------------------------------------------------
 
     def path(self, side):
-        return self.abbr + self.num + side + '.png'
+        return 'sides/' + self.abbr + self.num + side + '.png'
 
     # ------------------------------------------------------------------
 
@@ -181,7 +182,6 @@ class dfc(dict):
     # ==================================================================
 
     def add_text(self, side, offset=None, careful=True):
-
         # If the position isn't given, go for the middle. 
         if offset is None:
             offset = (self.h_txt - self.h_txt_new)//2
@@ -205,8 +205,6 @@ class dfc(dict):
         # Flip the canvas back. 
         if side == 'b':
             self.flip_flip()
-
-
         return
 
     # ==================================================================
@@ -245,6 +243,30 @@ class dfc(dict):
 
         return arr        
 
+    # ==================================================================
+    # ================================================== Save Card Image
+    # ==================================================================
+
+    def save(self):
+        plt.figure( figsize=(2.23, 3.10) )
+        plt.subplots_adjust(bottom=0., left=0., right=1., top=1.)
+        plt.imshow(self.flip)
+        # Make sure we have a directory to save the output. 
+        if not os.path.isdir('flips'):
+            os.mkdir('flips')
+        savepath = 'flips/' + self.abbr + self.num + '.png'
+        print('saving', savepath)
+        return plt.savefig(savepath)
+
+    # ==================================================================
+    # ================================================== Show Card Image
+    # ==================================================================
+
+    def show(self):
+        plt.figure( figsize=(9.92, 3.10) )
+        plt.subplots_adjust(bottom=0., left=0., right=1., top=1.)
+        plt.imshow( self.debug() )
+        return plt.show()
 
 
 
@@ -252,21 +274,20 @@ class dfc(dict):
 
 
 
-
-class dfc_old(dfc):
+class dfc_old(dfc_new):
     # In SOI, cards have the new new frame, which is black at the
     # bottom. That's very convenient. In the original Innistrad block,
     # cards used the 8th Edition frame. The bottom requires better
     # matching, and the proportions are a bit different. 
-    h_ttl = 35
-    h_art = 138
+    h_ttl = 37
+    h_art = 136
     h_typ = 21
     h_txt = 83
     h_div = 7
     h_lip = 12
     h_pow = 22
 
-    h_art_new = 43
+    h_art_new = 41
     h_txt_new = 43
 
     w_pad = 17
@@ -281,39 +302,108 @@ class dfc_old(dfc):
 
 def main():
 
-    prowler = dfc('emn', 163)
-    prowler.add_art('a', 15)
-    prowler.add_art('b', 0)
-    prowler.add_text('a', 22)
-    prowler.add_text('b', 10, careful=False)
+    # Kessig Prowler
+    card = dfc('emn', 163)
+    card.add_art('a', 15)
+    card.add_art('b', 0)
+    card.add_text('a', 22)
+    card.add_text('b', 10, careful=False)
+    card.save()
 
-    waif = dfc_old('isd', 159)
+    '''
+    waif = dfc('isd', 159)
     waif.add_art('a', 10)
     waif.add_art('b')
     waif.add_text('a', 11)
     waif.add_text('b', 8)
+    waif.save()
 
-    # Fire up a plot figure in the proportions of three cards.
-    plt.figure( figsize=(20, 7) )
-    plt.subplots_adjust(bottom=0., left=0., right=1., top=1.)
+    angler = dfc('emn', 63)
+    angler.add_art('a', 20)
+    angler.add_art('b')
+    angler.add_text('a', 5)
+    angler.add_text('b', 10, careful=False)
+    angler.save()
 
-    # Plot the front, back, flip, and flipped flip. 
-    img = waif.debug()
+    chalice = dfc('dka', 146)
+    chalice.add_art('a', 20)
+    chalice.add_art('b')
+    chalice.add_text('a', 10)
+    chalice.add_text('b')
+    chalice.save()
 
-    blue = np.array( [0, 0, 1] )
+    rider = dfc('emn', 33)
+    rider.add_art('a', 10)
+    rider.add_art('b', 10)
+    rider.add_text('a', 3)
+    rider.add_text('b', 3, careful=False)
+    rider.save()
 
-#    img[50, :] = blue
-#    img[100, :] = blue
-#    img[150, :] = blue
-#    img[200, :] = blue
-#    img[250, :] = blue
-#    img[300, :] = blue
+    stranger = dfc('soi', 119)
+    stranger.add_art('a', 12)
+    stranger.add_art('b', 3)
+    stranger.add_text('a', 10)
+    stranger.add_text('b', 8)
+    stranger.save()
 
+    # Town Gossipmonger
+    card = dfc('soi', 46)
+    card.add_art('a')
+    card.add_art('b')
+    card.add_text('a', 15)
+    card.add_text('b', 7)
+    card.save()
 
+    # Heir of Falkenrath
+    card = dfc('soi', 116)
+    card.add_art('a', 25)
+    card.add_art('b', 55)
+    card.add_text('a', 2)
+    card.add_text('b', 2, careful=False)
+    card.save()
 
-    plt.imshow(img)
+    # Conduit of Storms
+    card = dfc('emn', 124)
+    card.add_art('a', 60)
+    card.add_art('b', 40)
+    card.add_text('a', 15)
+    card.add_text('b', 15)
+    card.save()
 
-    return plt.show()
+    # Smoldering Werewolf
+    card = dfc('emn', 142)
+    card.add_art('a', 20)
+    card.add_art('b', 5)
+    card.add_text('a', 5)
+    card.add_text('b', 4)
+    card.save()
+
+    # Tangleclaw Werewolf
+    card = dfc('emn', 174)
+    card.add_art('a', 20)
+    card.add_art('b', 20)
+    card.add_text('a', 5)
+    card.add_text('b', 10)
+    card.save()
+
+    # Village Messenger... doctored the reminder text out of Menace. 
+    card = dfc('soi', 190)
+    card.add_art('a', 25)
+    card.add_art('b', 40)
+    card.add_text('a', 14)
+    card.add_text('b', 28)
+    card.save()
+    '''
+
+#    # Breakneck Rider... five lines of text is just too much!
+#    card = dfc('soi', 147)
+#    card.add_art('a', 25)
+#    card.add_art('b', 25)
+#    card.add_text('a', 8)
+#    card.add_text('b', 9)
+#    card.show()
+
+    return
 
 # ######################################################################
 # #################################################### For Importability

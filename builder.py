@@ -41,13 +41,26 @@ import os
 # ############################################## Double Faced Card Class
 # ######################################################################
 
-class dfc(object):
+class dfc(dict):
 
     url_root = 'http://mtg.wtf/cards/'
 
     abbr, num = None, None
 
-    front, back, flip = None, None, None
+    flip = None, None, None
+
+    h_ttl = 35
+    h_art = 138
+    h_typ = 22
+    h_txt = 80
+    h_div = 15
+    h_pow = 6
+
+    h_art_new = 45
+    h_txt_new = 34
+
+    w_pad = 17
+    w_pow = 53
 
     # ==================================================================
     # ========================================== Initialize Pixel Arrays
@@ -65,15 +78,19 @@ class dfc(object):
             else:
                 print( 'getting ', self.path(side) )
                 urlretrieve( self.url(side), self.path(side) )
-
         # Load the front and back images into arrays.
-        self.front = mpimg.imread( self.path('a') )[:, :, :3]
-        self.back = mpimg.imread( self.path('b') )[:, :, :3]
+        for side in ('a', 'b'):
+            self[side] = mpimg.imread( self.path(side) )[:, :, :3]
         # Sanity check: are the pixel arrays the same shape?
-        assert self.front.shape == self.back.shape
-        # Create a third array. We'll squish the front and back onto it,
-        # shaped like a flip card. 
-        self.flip = np.zeros(self.front.shape)
+        assert self['a'].shape == self['b'].shape
+        # Create a third array. Fill it with the border color. 
+        self.flip = np.zeros(self['a'].shape)
+        self.flip[:, :] = self['a'][3, 20]
+        # Combine the front and back like a flip card. 
+        for side in ('a', 'b'):
+            self.frame_flip(side)
+            # Flipping the canvas is easier than rearranging the pieces.
+            self.flip_flip()
         return
 
     # ------------------------------------------------------------------
@@ -86,12 +103,72 @@ class dfc(object):
     def url(self, side):
         return self.url_root + self.abbr + '/' + self.num + side + '.png'
 
-
+    # ==================================================================
+    # ================================================== Flip the Canvas
+    # ==================================================================
 
     def flip_flip(self):
-        # It's easier to flip the canvas than it is to rearrange all the
-        # little pieces we're putting onto it.
         self.flip = self.flip[::-1, ::-1]
+
+    # ==================================================================
+    # ============================================= Map Card Frames Over
+    # ==================================================================
+
+    def frame_flip(self, side):
+        # Title line. 
+        self.flip[:self.h_ttl, :] = self[side][:self.h_ttl, :]
+        # Left and right art framing. 
+        bot_old = self.h_ttl + self.h_art
+        top_old = bot_old - self.h_art_new
+        left = self[side][top_old:bot_old, :self.w_pad]
+        right = self[side][top_old:bot_old, -self.w_pad:]
+        bot_new = self.h_ttl + self.h_art_new
+        top_new = self.h_ttl
+        self.flip[top_new:bot_new, :self.w_pad] = left
+        self.flip[top_new:bot_new, -self.w_pad:] = right
+        # Type line.
+        top_old = self.h_ttl + self.h_art
+        bot_old = top_old + self.h_typ
+        top_new = self.h_ttl + self.h_art_new
+        bot_new = top_new + self.h_typ
+        self.flip[top_new:bot_new, :] = self[side][top_old:bot_old, :]
+        # Text box framing. Note that we don't use the right side. We
+        # reflect the left over instead, to get rid of the divot. 
+        bot_old = self.h_ttl + self.h_art + self.h_typ + self.h_txt
+        top_old = bot_old - self.h_txt_new
+        left = self[side][top_old:bot_old, :self.w_pad]
+        top_new = self.h_ttl + self.h_art_new + self.h_typ
+        bot_new = top_new + self.h_txt_new
+        self.flip[top_new:bot_new, :self.w_pad] = left
+        self.flip[top_new:bot_new, -self.w_pad:] = left[:, ::-1]
+        # Divider at the bottom of the text box. 
+        top_old = self.h_ttl + self.h_art + self.h_typ + self.h_txt
+        bot_old = top_old + self.h_div
+        top_new = self.h_ttl + self.h_art_new + self.h_typ + self.h_txt_new
+        bot_new = top_new + self.h_div
+        self.flip[top_new:bot_new, :] = self[side][top_old:bot_old, :]
+        # Get the bottom of the power toughness box. Constrain the width
+        # so the front and back boxes can be staggered. 
+        top_old = self.h_ttl + self.h_art + self.h_typ + self.h_txt + self.h_div
+        bot_old = top_old + self.h_pow
+        temp = self[side][top_old:bot_old, -self.w_pow:]
+        top_new = self.h_ttl + self.h_art_new + self.h_typ + self.h_txt_new + self.h_div
+        bot_new = top_new + self.h_pow
+        self.flip[top_new:bot_new, -self.w_pow:] = temp
+        return
+
+
+    # ==================================================================
+    # ================================================= Helper Functions
+    # ==================================================================
+
+    @property
+    def shape(self):
+        return self['a'].shape
+
+    @shape.setter
+    def shape(self, *args):
+        raise TypeError('dfc.shape is read-only')
 
 
 
@@ -153,11 +230,9 @@ def main():
     assert imga.shape == imgb.shape
     assert imga.shape == img_.shape
 
-    '''
-
     # Flip the back upside down. 
-    imga = prowler.front
-    imgb = prowler.back
+    imga = prowler['a']
+    imgb = prowler['b']
 
     # Canvas for assembling the flip version. 
     imgc = np.zeros(imga.shape)
@@ -169,7 +244,7 @@ def main():
     txt_l, txt_r = art_l, art_r
     clr_t, clr_b = 286, 290
     pow_t, pow_b = txt_b, 296
-    pow_l = imga.shape[1]//2
+    pow_l = imga.shape[1] - 53
 
     # Title line. 
     titlea = imga[:art_t, :]
@@ -257,24 +332,20 @@ def main():
     imgc[new_clr_b:new_pow_b, pow_l:] = powb
     imgc = imgc[::-1, ::-1]
 
-
-
-
-
-
-
+    '''
 
 
     # We'll plot a triple-wide image: front, back, and flip. 
-    new_img_shape = np.array(imga.shape)*(1, 3, 1)
+    new_img_shape = np.array(prowler.shape)*(1, 3, 1)
     new_img = np.zeros(new_img_shape)
 
     # Put the front in the first slot and the back in the second slot.
     # We'll stitch them together in the third slot. 
-    card_width = imga.shape[1]
-    new_img[:, :card_width] = imga
-    new_img[:, card_width:2*card_width] = imgb
-    new_img[:, 2*card_width:] = imgc
+    card_width = new_img_shape[1]//3
+    new_img[:, :card_width] = prowler['a']
+    new_img[:, card_width:2*card_width] = prowler['b']
+#    new_img[:, 2*card_width:] = imgc
+    new_img[:, 2*card_width:] = prowler.flip
 
 
 
@@ -292,7 +363,7 @@ def main():
 #    new_img[art_t:art_b+1, art_r] = avg_r
 
     red = np.array( [1, 0, 0] )
-
+    '''
     # We'll cut the height of the art in half. 
     new_art_h = (art_b - art_t)//3
     # Set the top and bottom of the new art. 
@@ -333,6 +404,8 @@ def main():
     new_img[295, art_l:art_r+1] = red
 
 
+    new_img[:, card_width - 53] = red
+
 
 #    # Left side of the art. 
 #    img[:, 18] = 255
@@ -345,6 +418,9 @@ def main():
 
 #    # Bottom of the art. 
 #    img[172, :] = 255
+
+    '''
+
 
     # Fire up a plot figure in the proportions of three cards.
     plt.figure( figsize=(15, 7) )

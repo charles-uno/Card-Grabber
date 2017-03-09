@@ -1,44 +1,130 @@
 #!/usr/bin/env python3
 
-# Charles McEachern
+"""
+Charles McEachern
 
-# Spring 2016
+Spring 2016
+
+Grab card images from www.mtg.wtf, then finagle with them. The two
+halves of a transform card can be crunched into a Kamigawa-style flip
+card.
+"""
 
 # ######################################################################
-# ############################################################# Synopsis
-# ######################################################################
 
-# WIP...
-
-# ######################################################################
-# ################################################## Import Dependencies
-# ######################################################################
-
-import numpy as np
-
-from urllib.request import urlretrieve
-
-from PIL import Image
-
-# We use Matplotlib's image library to display images.
+# Matplotlib is used to display and export images.
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
-
-# For navigating between directories.
 import os
-
-
-
-
+# Image library (third party) is used to convert JPG to PNG.
+from PIL import Image
+from urllib.request import urlretrieve
 
 # ######################################################################
-# ################################################################# Main
-# ######################################################################
+
+
+
+
+class FlipCard(dict):
+
+    def __init__(self, abbr, num):
+        """Accept the set abbreviation and the collector number. Grab
+        scans for that card online if we don't have them already, then
+        load those images into this object.
+        """
+        self.abbr, self.num = abbr, str(num)
+        # Make sure we have a place to store the original images.
+        if not os.path.isdir('sides'):
+            os.mkdir('sides')
+        # Download the card images if we don't have them yet.
+        for side in 'ab':
+            if os.path.exists( self.path(side) ):
+                print( 'Already have', self.path(side) )
+            else:
+                print( 'Getting ', self.path(side) )
+                urlretrieve( self.url(side), self.path(side) )
+                # The images all use the PNG file extension, but some
+                # are actually JPGs.
+                pngpath = self.path(side)
+                jpgpath = pngpath.replace('.png', '.jpg')
+                try:
+                    mpimg.imread(pngpath)
+                except (ValueError, SystemError):
+                    print('Found a JPG in disguise, converting to PNG')
+                    # Rename the JPG to be accurate.
+                    os.rename(pngpath, jpgpath)
+                    # Convert it to a PNG.
+                    Image.open(jpgpath).save(pngpath)
+        # Load the front and back images into arrays. Throw away the
+        # alpha channel, which appears inconsistently.
+        for side in ('a', 'b'):
+            self[side] = mpimg.imread( self.path(side) )[:, :, :3]
+        # Sanity check: are the pixel arrays the same shape?
+        assert self['a'].shape == self['b'].shape
+        # Sides 'a' and 'b' are the front and back. Let's have side 'c'
+        # be where we assemble the flip card. By default, fill it with
+        # the border color.
+        self['c'] = np.zeros(self['a'].shape)
+        self['c'][:, :] = self['a'][3, 20]
+
+
+        return
+
+    # ------------------------------------------------------------------
+
+    def path(self, side):
+        return 'sides/hq_' + self.abbr + self.num + side + '.png'
+
+    # ------------------------------------------------------------------
+
+    def url(self, side):
+        return 'http://mtg.wtf/cards_hq/' + self.abbr + '/' + self.num + side + '.png'
+
+    # ------------------------------------------------------------------
+
+    def show(self):
+        """Plot the card four ways side-by-side: front, back, flip, and
+        upside-down flip.
+        """
+        # Same height as a single card image, but quadruple the width.
+        canvas = np.zeros( np.array(self['a'].shape)*(1, 4, 1) )
+        cardwidth = self['a'].shape[1]
+        # Fill in the front, back, flip, and flipped flip.
+        canvas[:, :cardwidth] = self['a']
+        canvas[:, cardwidth:2*cardwidth] = self['b']
+        canvas[:, 2*cardwidth:3*cardwidth] = self['c']
+        canvas[:, 3*cardwidth:] = self['c'][::-1, ::-1]
+        # Now create a figure to show it off.
+        plt.figure( figsize=(9.92, 3.10) )
+        plt.subplots_adjust(bottom=0., left=0., right=1., top=1.)
+        plt.imshow(canvas)
+        return plt.show()
+
+
+
+
 
 def main():
 
 
+    card = FlipCard('emn', 163)
+
+    card.show()
+
+
+    return
+
+
+    # Kessig Prowler
+    card = dfc('emn', 163)
+    card.add_art('a', 15)
+    card.add_art('b', 0)
+    card.add_text('a', 22)
+    card.add_text('b', 10, careful=False)
+    card.show()
+
+    '''
     # Delver of Secrets.
     delver = dfc('isd', 51)
     delver.add_art('a', 20)
@@ -46,15 +132,6 @@ def main():
     delver.add_text('a', 15)
     delver.add_text('b', 2, kp=20)
     delver.show()
-
-    '''
-    # Kessig Prowler
-    card = dfc('emn', 163)
-    card.add_art('a', 15)
-    card.add_art('b', 0)
-    card.add_text('a', 22)
-    card.add_text('b', 10, careful=False)
-    card.save()
 
     waif = dfc('isd', 159)
     waif.add_art('a', 10)
@@ -149,6 +226,10 @@ def main():
 #    card.show()
 
     return
+
+
+
+
 
 
 # ######################################################################

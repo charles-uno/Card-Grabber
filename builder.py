@@ -30,45 +30,144 @@ class FlipCard(dict):
 
     def __init__(self, abbr, num):
         """Accept the set abbreviation and the collector number. Grab
-        scans for that card online if we don't have them already, then
-        load those images into this object.
+        scans for that card online if we don't have them already. Load
+        those images, and construct the flip card frame.
         """
         self.abbr, self.num = abbr, str(num)
         # Make sure we have a place to store the original images.
         if not os.path.isdir('sides'):
             os.mkdir('sides')
         # Download the card images if we don't have them yet.
-        for side in 'ab':
-            if os.path.exists( self.path(side) ):
-                print( 'Already have', self.path(side) )
-            else:
-                print( 'Getting ', self.path(side) )
-                urlretrieve( self.url(side), self.path(side) )
-                # The images all use the PNG file extension, but some
-                # are actually JPGs.
-                pngpath = self.path(side)
-                jpgpath = pngpath.replace('.png', '.jpg')
-                try:
-                    mpimg.imread(pngpath)
-                except (ValueError, SystemError):
-                    print('Found a JPG in disguise, converting to PNG')
-                    # Rename the JPG to be accurate.
-                    os.rename(pngpath, jpgpath)
-                    # Convert it to a PNG.
-                    Image.open(jpgpath).save(pngpath)
-        # Load the front and back images into arrays. Throw away the
-        # alpha channel, which appears inconsistently.
-        for side in ('a', 'b'):
-            self[side] = mpimg.imread( self.path(side) )[:, :, :3]
+        [ self.load(x) for x in 'ab' ]
         # Sanity check: are the pixel arrays the same shape?
         assert self['a'].shape == self['b'].shape
-        # Sides 'a' and 'b' are the front and back. Let's have side 'c'
-        # be where we assemble the flip card. By default, fill it with
-        # the border color.
+        return
+
+    # ------------------------------------------------------------------
+
+    def frame(self, art=None, atxt=None, btxt=None):
+        """Copy chunks of the front and back sides of the card over to a
+        third image, where we will assemble it as a flip card. Don't
+        worry about the art or text box yet.
+        """
+        # Start with a canvast the same size as the front and back
+        # sides, the same color as the card border.
         self['c'] = np.zeros(self['a'].shape)
         self['c'][:, :] = self['a'][3, 20]
 
+        artt, artb0, artl, artr = 69, 379, 29, 451
+        artb1 = 140
 
+        txtt0, txtb0, txtl, txtr = 431, 611, 28, 451
+        txtt1 = artb1 + (txtt0 - artb0)
+        txtb1 = 300
+
+        if self.abbr in ('isd', 'dka'):
+            bott0, botb0, botl, botr = txtb0, 622, txtl, 363
+            boxt0, boxb0, boxl = txtb0, 665, 305
+            boxt1, boxb1 = txtb1, txtb1 + (boxb0 - boxt0)
+        else:
+            bott0, botb0, botl, botr = txtb0, 635, txtl, 375
+            boxt0, boxb0, boxl = txtb0, 665, 305
+            boxt1, boxb1 = txtb1, txtb1 + (boxb0 - boxt0)
+
+        for side in 'ab':
+            arth = artb1 - artt
+            self['c'][artt:artb1, artl:artr] = self[side][artt:artt + arth, artl:artr]
+            self.flip_canvas()
+
+#        for side in 'ab':
+#            self[side][artt:artb0, artl:artr] = (1, 0, 1)
+#            self[side][txtt0:txtb0, txtl:txtr] = (1, 0, 0)
+#            self[side][bott0:botb0, botl:botr] = (0, 0, 1)
+#            self[side][boxt0:boxb0, boxl:boxr] = (0, 1, 0)
+
+        for side in 'ab':
+            self['c'][:artt, :] = self[side][:artt, :]
+            self['c'][artt:artb1, :artl] = self[side][artt:artb1, :artl]
+            self['c'][artt:artb1, artr:] = self[side][artt:artb1, artr:]
+            self['c'][artb1:txtt1, :] = self[side][artb0:txtt0, :]
+            wingt = txtb0 - (txtb1 - txtt1)
+            self['c'][txtt1:txtb1, :artl] = self[side][wingt:txtb0, :artl]
+            # To get rid of the transform indicator cutout, let's just
+            # reflect the left wing over to the right.
+            dx = min(self['c'][:, artr:].shape[1], artl)
+            wing = self[side][wingt:txtb0, :dx][:, ::-1]
+            self['c'][txtt1:txtb1, artr:artr + dx] = wing
+            # We want to stagger the power and toughness boxes a little
+            # bit, which means the frames need to overlap in the middle.
+            dy = 1 + self['c'].shape[0]//2 - txtb1
+            self['c'][txtb1:txtb1 + dy, :] = self[side][txtb0:txtb0 + dy, :]
+            # We may not want to use the entire text box. Fill in the
+            # background to cover the default black.
+            blank = np.mean(self[side][txtt0 + 5, txtl:txtr], axis=0)
+            for i in range(txtt1, txtb1):
+                self['c'][i, txtl:txtr] = blank
+            self.flip_canvas()
+        # Clip in the art. Allow the user to specify where the slice
+        # should be taken. If they don't, take it from the middle.
+        art = (art[0] + artt, art[1] + artt) if art else (None, None)
+        for t0, side in zip(art, 'ab'):
+            arth0, arth1 = artb0 - artt, artb1 - artt
+            if t0 is None:
+                t0 = artt + (arth0 - arth1)//2
+            b0 = t0 + arth1
+            self['c'][artt:artb1, artl:artr] = self[side][t0:b0, artl:artr]
+            self.flip_canvas()
+
+        # Clip in the text. Note that top and bottom constraints can be
+        # specified. If the desired clip is too small, it'll be
+        # centered; if it's too big, it'll be squished.
+        txth1 = txtb1 - txtt1
+        if atxt is None:
+            atxt = 0
+        if isinstance(atxt, int):
+            atxt = (atxt, atxt + txth1)
+
+        atxt = (atxt[0] + txtt0, atxt[1] + txtt0)
+
+        txt = self['a'][atxt[0]:atxt[1], txtr:txtl]
+
+        txth0 = atxt[1] - atxt[0]
+
+
+
+
+
+
+        # Add the power and toughness box last, since it can overlap
+        # other elements.
+        for side in 'ab':
+            self['c'][boxt1:boxb1, boxl:] = self[side][boxt0:boxb0, boxl:]
+            self.flip_canvas()
+
+        return
+
+    # ------------------------------------------------------------------
+
+    def load(self, side):
+        """Check that we have an image for this side of the card. If we
+        don't, grab it from the internet, and make sure it's a PNG.
+        """
+        # If this image doesn't exist locally, go grab it.
+        if not os.path.exists( self.path(side) ):
+            print( 'Downloading', self.path(side) )
+            urlretrieve( self.url(side), self.path(side) )
+        # The images on mtg.wtf are sometimes JPGs with the PNG file
+        # extension. If that's the case, fix it.
+        pngpath = self.path(side)
+        jpgpath = pngpath.replace('.png', '.jpg')
+        try:
+            mpimg.imread(pngpath)
+        except (ValueError, SystemError):
+            print('Found a JPG in disguise, converting to PNG')
+            os.rename(pngpath, jpgpath)
+            Image.open(jpgpath).save(pngpath)
+            os.remove(jpgpath)
+        # Now load the converted image. Throw away the alpha channel,
+        # since it does not appear consistently.
+        print( 'Loading', self.path(side) )
+        self[side] = mpimg.imread(pngpath)[:, :, :3]
         return
 
     # ------------------------------------------------------------------
@@ -83,10 +182,21 @@ class FlipCard(dict):
 
     # ------------------------------------------------------------------
 
-    def show(self):
+    def flip_canvas(self):
+        """Rotate the canvas upside-down so we can more easily apply
+        back-side elements.
+        """
+        self['c'] = self['c'][::-1, ::-1]
+
+    # ------------------------------------------------------------------
+
+    def show(self, **kwargs):
         """Plot the card four ways side-by-side: front, back, flip, and
         upside-down flip.
         """
+        # Sides 'a' and 'b' are the front and back. Let's have side 'c'
+        # be where we assemble the flip card.
+        self.frame(**kwargs)
         # Same height as a single card image, but quadruple the width.
         canvas = np.zeros( np.array(self['a'].shape)*(1, 4, 1) )
         cardwidth = self['a'].shape[1]
@@ -96,7 +206,7 @@ class FlipCard(dict):
         canvas[:, 2*cardwidth:3*cardwidth] = self['c']
         canvas[:, 3*cardwidth:] = self['c'][::-1, ::-1]
         # Now create a figure to show it off.
-        plt.figure( figsize=(9.92, 3.10) )
+        plt.figure( figsize=(9.6, 3.4) )
         plt.subplots_adjust(bottom=0., left=0., right=1., top=1.)
         plt.imshow(canvas)
         return plt.show()
@@ -107,10 +217,9 @@ class FlipCard(dict):
 
 def main():
 
+    card = FlipCard('isd', 51)
 
-    card = FlipCard('emn', 163)
-
-    card.show()
+    card.show( art=(30, 25) )
 
 
     return

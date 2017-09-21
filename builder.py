@@ -217,13 +217,17 @@ class FlipCard(dict):
 
 def main():
 
-    card = FlipCard('isd', 51)
+    # Startled Awake
+    card = dfc('soi', 88)
+    card.add_art('a', 20)
+    card.add_art('b', 10)
+    card.add_text('a', 0)
+    card.add_text('b', 0, careful=False)
+    card.save()
 
-    card.show( art=(30, 25) )
-
+#    card.show( art=(50, 25) )
 
     return
-
 
     # Kessig Prowler
     card = dfc('emn', 163)

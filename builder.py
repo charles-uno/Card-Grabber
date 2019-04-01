@@ -23,8 +23,8 @@ from urllib.request import urlretrieve
 
 def main():
 
-    # Aberrant Researcher
-    card = dfc('soi', 49)
+    # Cloistered Youth
+    card = dfc('isd', 8)
     card.add_art('a', 15)
     card.add_art('b', 35)
     card.add_text('a', 0)
@@ -32,6 +32,14 @@ def main():
     card.save()
 
     return
+
+    # Aberrant Researcher
+    card = dfc('soi', 49)
+    card.add_art('a', 15)
+    card.add_art('b', 35)
+    card.add_text('a', 0)
+    card.add_text('b', 11)
+    card.save()
 
     # Villagers of Estwald
     card = dfc('isd', 209)

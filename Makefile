@@ -5,4 +5,4 @@ image:
 	docker build . -f Dockerfile -t $(TAG)
 
 flip:
-	docker run --rm -v $(PWD):/sandbox -w /sandbox $(TAG) ./builder.py
+	docker run --rm -v $(PWD):/sandbox -w /sandbox $(TAG) ./flipper.py

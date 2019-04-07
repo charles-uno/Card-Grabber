@@ -10,10 +10,13 @@ flip card.
 
 # ----------------------------------------------------------------------
 
+import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
 import images
+
+DEBUG = "--debug" in sys.argv
 
 # ----------------------------------------------------------------------
 
@@ -44,7 +47,7 @@ class dfc_new(dict):
     txt_bot = {"a": 45, "b": 45}
     # What's the size of the new text box?
     h_txt_new = {"a": 45, "b": 45}
-    w_pad = 17
+    w_pad = 18
     w_pow = 53
 
     # ------------------------------------------------------------------
@@ -73,14 +76,20 @@ class dfc_new(dict):
         h_txt_total = self.h_txt_new["a"] + self.h_txt_new["b"]
         # Sanity check: does all the text fit?
         if h_txt["a"] + h_txt["b"] > h_txt_total:
-            raise ValueError("can't fit %d + %d in %d pixels" % (h_txt_a, h_txt_b, h_txt_total))
+            raise ValueError("can't fit %d + %d in %d pixels" % (h_txt["a"], h_txt["b"], h_txt_total))
         # If one side wants 60 pixels of text, shrink the other to fit.
         for side in "ab":
             if h_txt[side] > self.h_txt_new[side]:
                 other_side = "a" if side == "b" else "b"
                 self.h_txt_new[side] = h_txt[side]
                 self.h_txt_new[other_side] = h_txt_total - h_txt[side]
-        return self.debug() if "--debug" in sys.argv else self.save()
+        return self.debug() if DEBUG else self.save()
+
+    # ------------------------------------------------------------------
+
+    def __del__(self):
+        # When the object goes out of scope, clean up the plot.
+        return plt.close()
 
     # ------------------------------------------------------------------
 
@@ -98,13 +107,13 @@ class dfc_new(dict):
 
     def save(self):
         self.draw()
-        return images.save_image(self.flip, self.abbr, self.num, figsize=(2.23, 3.10))
+        return images.save_image(self.flip, self.abbr, self.num, figsize=(4.46, 6.20))
 
     # ------------------------------------------------------------------
 
     def show(self, side):
         self.draw()
-        return images.show_image(self[side], figsize=(2.23, 3.10))
+        return images.show_image(self[side], figsize=(4.46, 6.20))
 
     # ------------------------------------------------------------------
 
@@ -117,9 +126,9 @@ class dfc_new(dict):
         arr[:, width:2*width] = self['b']
         arr[:, 2*width:3*width] = self.flip
         arr[:, 3*width:] = self.flip[::-1, ::-1]
-        # Draw some red guide lines.
-#        arr[::10, :, :] = [1, 0, 0]
-        return images.show_image(arr, figsize=(9.92, 3.10))
+        images.show_image(arr, figsize=(19.84, 6.20))
+        # Debug one thing at a time.
+        return sys.exit()
 
     # ------------------------------------------------------------------
 
@@ -172,10 +181,10 @@ class dfc_new(dict):
         self.flip[txt_top_new:pow_top_new, -self.w_pad:] = temp[:, ::-1]
         # Right and bottom borders of the text box.
         self.flip[pow_top_new:div_bot_new, :self.w_pad] = self[side][pow_top:div_bot, :self.w_pad]
-        self.flip[txt_bot_new:div_bot_new, :] = self[side][txt_bot:div_bot, :]
+        self.flip[txt_bot_new:div_bot_new, self.w_pad:] = self[side][txt_bot:div_bot, self.w_pad + 1:self.w_pad + 2, :]
         # Empty background for the text box.
-        text_box_bg = self[side][txt_top - 1, self.w_pad + 1]
-        self.flip[txt_top_new:txt_bot_new, self.w_pad:-self.w_pad] = [1, 0, 0]
+        text_box_bg = [1, 0, 0] if DEBUG else self[side][txt_bot - 2, self.w_pad + 1]
+        self.flip[txt_top_new:txt_bot_new, self.w_pad:-self.w_pad] = text_box_bg
         return
 
     # ------------------------------------------------------------------
@@ -219,7 +228,7 @@ class dfc_old(dfc_new):
     h_pow = 22
     h_art_new = 41
     w_pad = 20
-    w_pow = 112
+    w_pow = 60
     art_offset = {"a": 0, "b": 0}
     # Where are we trimming text from the old text box?
     txt_top = {"a": 0, "b": 0}

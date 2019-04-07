@@ -44,9 +44,9 @@ def get_image(*args):
     if args not in IMAGES:
         if not os.path.isdir("sides"):
             os.mkdir("sides")
-        try:
+        if os.path.exists(get_path(*args)):
             IMAGES[args] = get_image_local(*args)
-        except FileNotFoundError:
+        else:
             IMAGES[args] = get_image_remote(*args)
     return IMAGES[args]
 

@@ -16,6 +16,12 @@ import flip
 # ----------------------------------------------------------------------
 
 def main():
+
+    # Lone Rider
+    flip.dfc("emn", 33, txt_a=(0, 52), txt_b=(18, 32), art_ab=(10, 10))
+
+    return
+
     # Aberrant Researcher
     flip.dfc("soi", 49, txt_a=(0, 68), txt_b=(8, 22), art_ab=(10, 10))
     # Breakneck Rider
@@ -50,8 +56,7 @@ def main():
     flip.dfc("dka", 122, txt_a=(9, 40), txt_b=(15, 70), art_ab=(30, 20))
     # Lambholt Pacifist
     flip.dfc("soi", 215, txt_a=(15, 77), txt_b=(17, 45), art_ab=(10, 10))
-    # Lone Rider
-    flip.dfc("emn", 33, txt_a=(0, 52), txt_b=(18, 32), art_ab=(10, 10))
+
     # Loyal Cathar
     flip.dfc("dka", 13, txt_a=(5, 50), txt_b=(10, 25), art_ab=(10, 20))
     # Mondronen Shaman

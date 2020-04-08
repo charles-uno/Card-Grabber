@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 
 import json
+import matplotlib.image as mpimg
 import os
-from PIL import Image
 import requests
 import time
-
-import numpy as np
-
-import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
 
 
 def main():
@@ -17,7 +12,7 @@ def main():
     images = list(get_card_images(cardname))
 
 
-IMAGE_DIR = "card-images/"
+IMAGE_DIR = "card-images"
 
 
 def get_card_images(cardname):
@@ -63,6 +58,8 @@ def get_card(cardname):
     return get_url(
         "https://api.scryfall.com/cards/search?",
         q=f"!'{cardname}'",
+        order="released",
+        unique="prints",
     ).json()["data"][0]
 
 

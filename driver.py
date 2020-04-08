@@ -5,6 +5,41 @@ import flipper
 
 def main():
 
+
+
+
+    return flipper.flip(
+        "Hinterland Logger",
+        art_offset_0=20,
+        art_offset_1=0,
+        text_offset_0=20,
+        text_offset_1=0,
+        text_skew=-20,
+    )
+
+
+
+
+
+
+    return flipper.flip(
+        "Kindly Stranger",
+        art_offset_0=20,
+        art_offset_1=0,
+        text_offset_0=30,
+        text_offset_1=50,
+        text_skew=20,
+    )
+
+    return flipper.flip(
+        "Delver of Secrets",
+        art_offset_0=20,
+        art_offset_1=40,
+        text_offset_0=55,
+        text_offset_1=0,
+        text_skew=50,
+    )
+
     return flipper.flip(
         "Heir of Falkenrath",
         art_offset_0=40,
@@ -44,6 +79,8 @@ def main():
 
     return
 
+
+    "Town Gossipmonger"
     "Grizzled Angler"
     "Tangleclaw Werewolf"
     "Aberrant Researcher"
